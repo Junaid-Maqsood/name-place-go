@@ -229,23 +229,27 @@ function GameCodeChip({ gameId }: { gameId: string }) {
 
 // ---------- Lobby ----------
 function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; isHost: boolean }) {
-  const [rounds, setRounds] = useState(game.num_rounds);
-  const [seconds, setSeconds] = useState(game.round_seconds);
-  const [finish, setFinish] = useState(game.finish_countdown);
+  const [rounds, setRounds] = useState<number | "">(game.num_rounds);
+  const [seconds, setSeconds] = useState<number | "">(game.round_seconds);
+  const [finish, setFinish] = useState<number | "">(game.finish_countdown);
+  const [difficulty, setDifficulty] = useState<Difficulty>((game.difficulty as Difficulty) ?? "medium");
   const [cats, setCats] = useState<string[]>(game.categories);
   const [newCat, setNewCat] = useState("");
 
+  const r = typeof rounds === "number" ? rounds : 5;
+  const s = typeof seconds === "number" ? seconds : 90;
+  const f = typeof finish === "number" ? finish : 15;
+
   const save = async () => {
     await supabase.from("games").update({
-      num_rounds: rounds, round_seconds: seconds, finish_countdown: finish, categories: cats,
-    }).eq("id", game.id);
+      num_rounds: r, round_seconds: s, finish_countdown: f, categories: cats, difficulty,
+    } as any).eq("id", game.id);
     toast.success("Settings saved");
   };
 
   const addBot = async () => {
-    const names = ["BotBuddy", "RoboRex", "MegaMind", "PixelPete", "ChipChamp"];
     const used = players.map(p => p.nickname);
-    const name = names.find(n => !used.includes(n)) ?? `Bot${Math.floor(Math.random()*99)}`;
+    const name = randomGamertag(used);
     await supabase.from("players").insert({
       game_id: game.id, nickname: name, emoji: pickRandomEmoji(players.map(p => p.emoji)), is_bot: true,
     });
@@ -254,29 +258,42 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
   const start = async () => {
     if (players.length < 1) return toast.error("Need at least 1 player");
     await save();
-    await startRound({ ...game, num_rounds: rounds, round_seconds: seconds, finish_countdown: finish, categories: cats });
+    await startRound({ ...game, num_rounds: r, round_seconds: s, finish_countdown: f, categories: cats, difficulty });
   };
 
   return (
-    <div className="card-pop p-6 space-y-5">
+    <div className="card-pop p-4 sm:p-6 space-y-4 sm:space-y-5">
       <div className="text-center">
-        <h2 className="font-display text-3xl font-bold">Lobby</h2>
-        <p className="text-muted-foreground">Waiting to start · {players.length}/10 players</p>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold">Lobby</h2>
+        <p className="text-muted-foreground text-sm">Waiting to start · {players.length}/10 players</p>
       </div>
 
       {isHost ? (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <NumberField label="Rounds" value={rounds} setValue={setRounds} min={1} max={20} />
-            <NumberField label="Seconds / round" value={seconds} setValue={setSeconds} min={20} max={300} />
-            <NumberField label="Final countdown" value={finish} setValue={setFinish} min={5} max={60} />
+            <NumberField label="Sec/round" value={seconds} setValue={setSeconds} min={20} max={300} />
+            <NumberField label="Final s" value={finish} setValue={setFinish} min={5} max={60} />
           </div>
 
           <div>
-            <label className="block font-bold mb-2 flex items-center gap-2"><Settings className="size-4" /> Categories</label>
+            <label className="block text-xs font-bold text-muted-foreground mb-2">Difficulty</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["easy","medium","hard"] as Difficulty[]).map(d => (
+                <button key={d} onClick={() => setDifficulty(d)}
+                  className={`btn-pop py-2 text-xs sm:text-sm capitalize ${
+                    difficulty === d ? "bg-primary text-primary-foreground" : "bg-card text-foreground"
+                  }`}>{d}{d === "hard" ? " 🔥" : ""}</button>
+              ))}
+            </div>
+            {difficulty === "hard" && <p className="text-xs text-muted-foreground mt-1">Includes tough letters: Q, U, X, Y, Z</p>}
+          </div>
+
+          <div>
+            <label className="font-bold mb-2 flex items-center gap-2 text-sm"><Settings className="size-4" /> Categories</label>
             <div className="flex flex-wrap gap-2 mb-2">
               {cats.map((c) => (
-                <span key={c} className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground border-2 border-foreground/20 px-3 py-1 text-sm font-bold">
+                <span key={c} className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground border-2 border-foreground/20 px-3 py-1 text-xs sm:text-sm font-bold">
                   {c}
                   <button onClick={() => setCats(cats.filter(x => x !== c))}><X className="size-3.5" /></button>
                 </span>
@@ -284,24 +301,24 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
             </div>
             <div className="flex gap-2">
               <input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Add category…" maxLength={20}
-                className="flex-1 rounded-full border-2 border-foreground/20 px-3 py-2 text-sm bg-background focus:outline-none focus:border-primary" />
+                className="flex-1 min-w-0 rounded-full border-2 border-foreground/20 px-3 py-2 text-sm bg-background focus:outline-none focus:border-primary" />
               <button onClick={() => { if (newCat.trim()) { setCats([...cats, newCat.trim()]); setNewCat(""); } }}
-                className="btn-pop bg-accent text-accent-foreground px-3 py-2 text-sm flex items-center gap-1">
+                className="btn-pop bg-accent text-accent-foreground px-3 py-2 text-sm flex items-center gap-1 shrink-0">
                 <Plus className="size-4" /> Add
               </button>
             </div>
             {cats.length === 0 && <p className="text-xs text-destructive mt-1">Add at least one category</p>}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button onClick={save} className="btn-pop bg-card text-foreground px-4 py-2 text-sm">Save</button>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+            <button onClick={save} className="btn-pop bg-card text-foreground px-3 py-2 text-xs sm:text-sm">Save</button>
             <button onClick={addBot} disabled={players.length >= 10}
-              className="btn-pop text-foreground px-4 py-2 text-sm flex items-center gap-1"
+              className="btn-pop text-foreground px-3 py-2 text-xs sm:text-sm flex items-center justify-center gap-1"
               style={{ background: "var(--fun-4)" }}>
               <Bot className="size-4" /> Add bot
             </button>
             <button onClick={start} disabled={cats.length === 0}
-              className="btn-pop bg-primary text-primary-foreground px-5 py-2 ml-auto flex items-center gap-2">
+              className="btn-pop bg-primary text-primary-foreground px-4 py-2 text-sm sm:ml-auto col-span-2 flex items-center justify-center gap-2">
               <Play className="size-4" /> Start game
             </button>
           </div>
@@ -314,13 +331,19 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
 }
 
 function NumberField({ label, value, setValue, min, max }:
-  { label: string; value: number; setValue: (n: number) => void; min: number; max: number }) {
+  { label: string; value: number | ""; setValue: (n: number | "") => void; min: number; max: number }) {
   return (
-    <div>
-      <label className="block text-xs font-bold text-muted-foreground mb-1">{label}</label>
-      <input type="number" value={value} min={min} max={max}
-        onChange={(e) => setValue(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
-        className="w-full rounded-2xl border-2 border-foreground/20 px-3 py-2 font-bold text-center bg-background focus:outline-none focus:border-primary" />
+    <div className="min-w-0">
+      <label className="block text-xs font-bold text-muted-foreground mb-1 truncate">{label}</label>
+      <input type="text" inputMode="numeric" pattern="[0-9]*" value={value}
+        onChange={(e) => {
+          const v = e.target.value.replace(/[^0-9]/g, "");
+          if (v === "") { setValue(""); return; }
+          const n = parseInt(v, 10);
+          setValue(Math.min(max, n));
+        }}
+        onBlur={() => { if (value === "" || (typeof value === "number" && value < min)) setValue(min); }}
+        className="w-full rounded-2xl border-2 border-foreground/20 px-2 py-2 font-bold text-center bg-background focus:outline-none focus:border-primary" />
     </div>
   );
 }
