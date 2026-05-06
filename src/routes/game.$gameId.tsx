@@ -306,14 +306,24 @@ function PlayingView({ game, players, answers, me }:
     await endRound(game);
   }, [isHost, game]);
 
-  // Trigger final countdown when first non-bot finishes
+  // Trigger final 15s countdown when ANY player (human or bot) finishes with all categories filled
   useEffect(() => {
     if (!isHost || game.finish_triggered_at) return;
-    const someoneFinished = players.some(p => p.finished_round && !p.is_bot);
-    if (someoneFinished && !allFinished) {
-      supabase.from("games").update({ finish_triggered_at: new Date().toISOString() }).eq("id", game.id);
+    const finisher = players.find(p => p.finished_round);
+    if (!finisher || allFinished) return;
+    // Verify they actually answered all categories
+    const theirAnswers = answers.filter(a => a.player_id === finisher.id && a.round === game.current_round);
+    const filled = game.categories.every(c => {
+      const a = theirAnswers.find(x => x.category === c);
+      return a && a.value && a.value.trim().length > 0;
+    });
+    if (filled) {
+      supabase.from("games").update({
+        finish_triggered_at: new Date().toISOString(),
+        finish_countdown: 15,
+      }).eq("id", game.id);
     }
-  }, [isHost, players, allFinished, game.finish_triggered_at, game.id]);
+  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories]);
 
   // If all humans finished (incl. via final countdown), end early
   useEffect(() => {
