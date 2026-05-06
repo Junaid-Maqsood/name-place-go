@@ -5,13 +5,15 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  type Game, type Player, type Answer, loadSession, saveSession,
-  startRound, endRound, nextStep, DEFAULT_CATEGORIES, clearSession, pickRandomEmoji,
+  type Game, type Player, type Answer, type Difficulty, loadSession, saveSession,
+  startRound, endRound, nextStep, clearSession, pickRandomEmoji, kickPlayer,
 } from "@/lib/game";
+import { randomGamertag } from "@/lib/gamertags";
+import { sfx, setMuted, isMuted } from "@/lib/sfx";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { PlayerList } from "@/components/game/PlayerList";
 import { CountdownTimer } from "@/components/game/CountdownTimer";
-import { Copy, Play, Plus, X, LogOut, Trophy, Bot, Settings } from "lucide-react";
+import { Copy, Play, Plus, X, LogOut, Trophy, Bot, Settings, Share2, Volume2, VolumeX } from "lucide-react";
 
 export const Route = createFileRoute("/game/$gameId")({ component: GameRoute });
 
