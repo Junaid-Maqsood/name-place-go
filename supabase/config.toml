@@ -1,1 +1,4 @@
 project_id = "rtfghettrdvzwyfeiubl"
+
+[functions.validate-round]
+verify_jwt = false
