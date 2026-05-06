@@ -64,10 +64,16 @@ export function pickRandomEmoji(taken: string[] = []) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function pickLetter(used: string[]) {
-  const free = ALPHABET.filter((l) => !used.includes(l));
-  const pool = free.length ? free : ALPHABET;
-  return pool[Math.floor(Math.random() * pool.length)];
+export function pickLetter(used: string[], difficulty: Difficulty = "medium") {
+  const alphabet = ALPHABETS[difficulty];
+  const free = alphabet.filter((l) => !used.includes(l));
+  if (free.length === 0) return null; // out of letters
+  // Hard mode: bias toward Q/U/X/Y/Z if any are free
+  if (difficulty === "hard") {
+    const hard = free.filter(l => "QUXYZ".includes(l));
+    if (hard.length && Math.random() < 0.6) return hard[Math.floor(Math.random() * hard.length)];
+  }
+  return free[Math.floor(Math.random() * free.length)];
 }
 
 const STORAGE_KEY = "npg:session";
