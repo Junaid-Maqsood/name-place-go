@@ -108,18 +108,21 @@ export type Database = {
           created_at: string
           game_id: string
           id: string
+          kick_count: number
           nickname: string
         }
         Insert: {
           created_at?: string
           game_id: string
           id?: string
+          kick_count?: number
           nickname: string
         }
         Update: {
           created_at?: string
           game_id?: string
           id?: string
+          kick_count?: number
           nickname?: string
         }
         Relationships: []
