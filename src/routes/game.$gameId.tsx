@@ -531,7 +531,7 @@ function RoundResults({ game, players, answers, isHost }:
 }
 
 // ---------- Final leaderboard ----------
-function FinalLeaderboard({ players }: { players: Player[] }) {
+function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: string }) {
   const sorted = [...players].sort((a,b) => b.score - a.score);
   const titles = [
     { emoji: "🏆", title: "Word Master ✍️" },
@@ -539,39 +539,95 @@ function FinalLeaderboard({ players }: { players: Player[] }) {
     { emoji: "🥉", title: "Wordsmith 📚" },
   ];
   const fun = ["Animal Lover 🐾", "Explorer 🌍", "Foodie 🍕", "Cinephile 🎬", "Rookie 🌱"];
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const downloadImage = async () => {
+    if (!cardRef.current) return;
+    try {
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement("a");
+      link.download = `nameplacego-${gameId}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e: any) { toast.error("Couldn't generate image"); }
+  };
+
+  const shareNative = async () => {
+    if (!cardRef.current) return;
+    const winner = sorted[0];
+    const text = `🏆 ${winner?.nickname} just won NamePlaceGo! with ${winner?.score} pts. Play at ${window.location.origin}`;
+    try {
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const file = blob ? new File([blob], "nameplacego-win.png", { type: "image/png" }) : null;
+      if (file && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text, title: "NamePlaceGo!" });
+        return;
+      }
+      if (navigator.share) { await navigator.share({ text, url: window.location.origin }); return; }
+      await navigator.clipboard.writeText(text);
+      toast.success("Result copied — paste it anywhere!");
+    } catch { /* user dismissed */ }
+  };
+
+  const shareTwitter = () => {
+    const winner = sorted[0];
+    const text = `🏆 ${winner?.nickname} won NamePlaceGo! with ${winner?.score} pts. Try to beat them →`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.origin)}`;
+    window.open(url, "_blank");
+  };
+
+  const shareWhatsapp = () => {
+    const winner = sorted[0];
+    const text = `🏆 ${winner?.nickname} won NamePlaceGo! with ${winner?.score} pts. Play at ${window.location.origin}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
 
   return (
-    <div className="card-pop p-6 space-y-5">
-      <div className="text-center">
-        <Trophy className="mx-auto size-12 text-warning" />
-        <h2 className="font-display text-4xl font-bold mt-2">Game over!</h2>
-      </div>
-      <div className="grid sm:grid-cols-3 gap-3">
-        {sorted.slice(0, 3).map((p, i) => (
-          <motion.div key={p.id}
-            initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: i * 0.15, type: "spring" }}
-            className={`card-pop p-4 text-center ${i === 0 ? "md:scale-110" : ""}`}
-            style={{ background: i === 0 ? "var(--fun-3)" : i === 1 ? "var(--fun-2)" : "var(--fun-1)" }}>
-            <div className="text-5xl">{titles[i].emoji}</div>
-            <div className="font-display text-2xl font-bold mt-2">{p.emoji} {p.nickname}</div>
-            <div className="font-display text-3xl font-bold tabular-nums">{p.score}</div>
-            <div className="text-sm font-bold mt-1">{titles[i].title}</div>
-          </motion.div>
-        ))}
-      </div>
-      {sorted.length > 3 && (
-        <ul className="space-y-1">
-          {sorted.slice(3).map((p, i) => (
-            <li key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-background/60">
-              <span className="font-display font-bold text-muted-foreground">#{i + 4}</span>
-              <span className="font-bold flex-1">{p.emoji} {p.nickname}</span>
-              <span className="text-sm text-muted-foreground">{fun[i % fun.length]}</span>
-              <span className="font-display font-bold tabular-nums">{p.score}</span>
-            </li>
+    <div className="space-y-4">
+      <div ref={cardRef} className="card-pop p-4 sm:p-6 space-y-5">
+        <div className="text-center">
+          <Trophy className="mx-auto size-12 text-warning" />
+          <h2 className="font-display text-3xl sm:text-4xl font-bold mt-2">Game over!</h2>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {sorted.slice(0, 3).map((p, i) => (
+            <motion.div key={p.id}
+              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: i * 0.15, type: "spring" }}
+              className={`card-pop p-4 text-center ${i === 0 ? "md:scale-110" : ""}`}
+              style={{ background: i === 0 ? "var(--fun-3)" : i === 1 ? "var(--fun-2)" : "var(--fun-1)" }}>
+              <div className="text-5xl">{titles[i].emoji}</div>
+              <div className="font-display text-xl sm:text-2xl font-bold mt-2 break-words">{p.emoji} {p.nickname}</div>
+              <div className="font-display text-3xl font-bold tabular-nums">{p.score}</div>
+              <div className="text-sm font-bold mt-1">{titles[i].title}</div>
+            </motion.div>
           ))}
-        </ul>
-      )}
+        </div>
+        {sorted.length > 3 && (
+          <ul className="space-y-1">
+            {sorted.slice(3).map((p, i) => (
+              <li key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-background/60">
+                <span className="font-display font-bold text-muted-foreground">#{i + 4}</span>
+                <span className="font-bold flex-1 truncate">{p.emoji} {p.nickname}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground hidden sm:inline">{fun[i % fun.length]}</span>
+                <span className="font-display font-bold tabular-nums">{p.score}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-center text-xs text-muted-foreground font-bold">nameplacego.app · #NamePlaceGo</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button onClick={shareNative} className="btn-pop bg-primary text-primary-foreground py-2.5 text-sm flex items-center justify-center gap-1.5">
+          <Share2 className="size-4" /> Share
+        </button>
+        <button onClick={downloadImage} className="btn-pop bg-card text-foreground py-2.5 text-sm">📷 Save image</button>
+        <button onClick={shareTwitter} className="btn-pop bg-secondary text-secondary-foreground py-2.5 text-sm">𝕏 Twitter</button>
+        <button onClick={shareWhatsapp} className="btn-pop py-2.5 text-sm" style={{ background: "var(--fun-4)" }}>💬 WhatsApp</button>
+      </div>
     </div>
   );
 }
