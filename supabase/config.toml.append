@@ -1,0 +1,2 @@
+[functions.validate-round]
+verify_jwt = false
