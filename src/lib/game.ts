@@ -2,7 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const PLAYER_EMOJIS = ["🦊","🐼","🦁","🐸","🐙","🦄","🐵","🐯","🐧","🐨","🦉","🐲","🦋","🐳"];
 export const DEFAULT_CATEGORIES = ["Name","Place","Animal","Thing","Food","Movie"];
-export const ALPHABET = "ABCDEFGHIJKLMNOPRSTUVW".split(""); // skip very hard letters
+
+export type Difficulty = "easy" | "medium" | "hard";
+export const ALPHABETS: Record<Difficulty, string[]> = {
+  easy: "ABCDEFGHIJKLMNOPRST".split("").filter(l => !"YZ".includes(l)),
+  medium: "ABCDEFGHIJKLMNOPRSTUVW".split(""),
+  hard: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""), // includes Q U X Y Z
+};
+export const ALPHABET = ALPHABETS.medium;
 
 export type GameStatus = "lobby" | "playing" | "scoring" | "results" | "finished";
 
@@ -19,6 +26,7 @@ export interface Game {
   round_started_at: string | null;
   finish_triggered_at: string | null;
   used_letters: string[];
+  difficulty: Difficulty;
 }
 
 export interface Player {
@@ -56,10 +64,16 @@ export function pickRandomEmoji(taken: string[] = []) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function pickLetter(used: string[]) {
-  const free = ALPHABET.filter((l) => !used.includes(l));
-  const pool = free.length ? free : ALPHABET;
-  return pool[Math.floor(Math.random() * pool.length)];
+export function pickLetter(used: string[], difficulty: Difficulty = "medium") {
+  const alphabet = ALPHABETS[difficulty];
+  const free = alphabet.filter((l) => !used.includes(l));
+  if (free.length === 0) return null; // out of letters
+  // Hard mode: bias toward Q/U/X/Y/Z if any are free
+  if (difficulty === "hard") {
+    const hard = free.filter(l => "QUXYZ".includes(l));
+    if (hard.length && Math.random() < 0.6) return hard[Math.floor(Math.random() * hard.length)];
+  }
+  return free[Math.floor(Math.random() * free.length)];
 }
 
 const STORAGE_KEY = "npg:session";
@@ -105,6 +119,10 @@ export async function joinGame(gameId: string, nickname: string, emoji: string) 
   if (error) throw error;
   if (!game) throw new Error("Game not found");
   if (game.status !== "lobby") throw new Error("Game already in progress");
+  // Check ban list
+  const { data: ban } = await supabase
+    .from("game_bans" as any).select("kick_count").eq("game_id", gameId).eq("nickname", nickname).maybeSingle();
+  if (ban && (ban as any).kick_count >= 2) throw new Error("You are banned from this game");
   const { count } = await supabase.from("players").select("*", { count: "exact", head: true }).eq("game_id", gameId);
   if ((count ?? 0) >= 10) throw new Error("Lobby is full (10 players max)");
   const { data: player, error: pErr } = await supabase
@@ -119,7 +137,8 @@ export async function joinGame(gameId: string, nickname: string, emoji: string) 
 
 export async function startRound(game: Game) {
   const nextRound = game.current_round + 1;
-  const letter = pickLetter(game.used_letters);
+  const letter = pickLetter(game.used_letters, game.difficulty ?? "medium");
+  if (!letter) throw new Error("No more letters available!");
   await supabase.from("players").update({ finished_round: false }).eq("game_id", game.id);
   await supabase.from("games").update({
     status: "playing",
@@ -146,6 +165,29 @@ export async function nextStep(game: Game) {
   } else {
     await startRound(game);
   }
+}
+
+export async function kickPlayer(gameId: string, player: { id: string; nickname: string; is_bot: boolean }) {
+  await supabase.from("players").delete().eq("id", player.id);
+  if (player.is_bot) return { banned: false };
+  // Track ban count
+  const { data: existing } = await supabase
+    .from("game_bans" as any).select("kick_count").eq("game_id", gameId).eq("nickname", player.nickname).maybeSingle();
+  const newCount = ((existing as any)?.kick_count ?? 0) + 1;
+  if (existing) {
+    await supabase.from("game_bans" as any).update({ kick_count: newCount })
+      .eq("game_id", gameId).eq("nickname", player.nickname);
+  } else {
+    await supabase.from("game_bans" as any).insert({ game_id: gameId, nickname: player.nickname, kick_count: newCount });
+  }
+  await supabase.from("chat_messages").insert({
+    game_id: gameId, nickname: "system",
+    content: newCount >= 2
+      ? `🚫 ${player.nickname} was permanently banned`
+      : `👋 ${player.nickname} was kicked by host`,
+    kind: "system",
+  });
+  return { banned: newCount >= 2 };
 }
 
 export function getTitleForPlayer(name: string, idx: number, categories: string[]) {

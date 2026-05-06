@@ -1,17 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  type Game, type Player, type Answer, loadSession, saveSession,
-  startRound, endRound, nextStep, DEFAULT_CATEGORIES, clearSession, pickRandomEmoji,
+  type Game, type Player, type Answer, type Difficulty, loadSession, saveSession,
+  startRound, endRound, nextStep, clearSession, pickRandomEmoji, kickPlayer,
 } from "@/lib/game";
+import { randomGamertag } from "@/lib/gamertags";
+import { sfx, setMuted, isMuted } from "@/lib/sfx";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { PlayerList } from "@/components/game/PlayerList";
 import { CountdownTimer } from "@/components/game/CountdownTimer";
-import { Copy, Play, Plus, X, LogOut, Trophy, Bot, Settings } from "lucide-react";
+import { Copy, Play, Plus, X, LogOut, Trophy, Bot, Settings, Share2, Volume2, VolumeX } from "lucide-react";
 
 export const Route = createFileRoute("/game/$gameId")({ component: GameRoute });
 
@@ -76,12 +78,44 @@ function GameRoute() {
     })();
   }, [game?.current_round, game?.status, gameId]);
 
-  // Confetti when finished
+  // Confetti + fireworks sound when finished
   useEffect(() => {
     if (game?.status === "finished") {
       confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
+      sfx.fireworks();
+      setTimeout(() => confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 } }), 600);
     }
   }, [game?.status]);
+
+  // Sounds: round started / scoring (round ended)
+  const prevStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!game) return;
+    if (prevStatus.current && prevStatus.current !== game.status) {
+      if (game.status === "playing") sfx.start();
+      if (game.status === "scoring") sfx.end();
+    }
+    prevStatus.current = game.status;
+  }, [game?.status]);
+
+  // Sound when a player joins the lobby
+  const prevPlayerCount = useRef<number>(0);
+  useEffect(() => {
+    if (game?.status === "lobby" && players.length > prevPlayerCount.current && prevPlayerCount.current > 0) {
+      sfx.join();
+    }
+    prevPlayerCount.current = players.length;
+  }, [players.length, game?.status]);
+
+  // Was-I-kicked detector
+  useEffect(() => {
+    if (!me || !game) return;
+    if (players.length > 0 && !players.find(p => p.id === me.playerId)) {
+      toast.error("You were removed from the game");
+      clearSession();
+      navigate({ to: "/" });
+    }
+  }, [players, me, game, navigate]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,16 +153,28 @@ function GameRoute() {
 
   const isHost = game.host_player_id === me.playerId;
 
+  const handleKick = async (p: Player) => {
+    if (!isHost) return;
+    if (!confirm(`Remove ${p.nickname} from the game?`)) return;
+    try {
+      const res = await kickPlayer(gameId, { id: p.id, nickname: p.nickname, is_bot: p.is_bot });
+      toast.success(res.banned ? `${p.nickname} permanently banned` : `${p.nickname} removed`);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
   return (
     <main className="min-h-screen p-2 sm:p-3 md:p-6 max-w-7xl mx-auto">
-      <header className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
-        <div className="min-w-0">
+      <header className="flex items-center justify-between mb-3 sm:mb-4 gap-2 flex-wrap">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold truncate">NamePlaceGo!</h1>
           <GameCodeChip gameId={gameId} />
         </div>
-        <button onClick={leave} className="btn-pop bg-card text-foreground px-3 py-2 text-sm flex items-center gap-1 shrink-0">
-          <LogOut className="size-4" /> <span className="hidden xs:inline">Leave</span>
-        </button>
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <SoundToggle />
+          <button onClick={leave} className="btn-pop bg-card text-foreground px-2.5 sm:px-3 py-2 text-xs sm:text-sm flex items-center gap-1">
+            <LogOut className="size-4" /> <span className="hidden sm:inline">Leave</span>
+          </button>
+        </div>
       </header>
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">
@@ -143,16 +189,27 @@ function GameRoute() {
             </div>
           )}
           {game.status === "results" && <RoundResults game={game} players={players} answers={answers} isHost={isHost} />}
-          {game.status === "finished" && <FinalLeaderboard players={players} />}
+          {game.status === "finished" && <FinalLeaderboard players={players} gameId={gameId} />}
         </section>
 
         <aside className="space-y-4">
           <PlayerList players={players} hostId={game.host_player_id} currentPlayerId={me.playerId}
-            showFinished={game.status === "playing"} />
+            showFinished={game.status === "playing"}
+            canKick={isHost && game.status === "lobby"} onKick={handleKick} />
           <ChatPanel gameId={gameId} nickname={me.nickname} playerId={me.playerId} />
         </aside>
       </div>
     </main>
+  );
+}
+
+function SoundToggle() {
+  const [m, setM] = useState(isMuted());
+  return (
+    <button onClick={() => { const n = !m; setMuted(n); setM(n); }}
+      className="btn-pop bg-card text-foreground p-2 flex items-center" aria-label="Toggle sound">
+      {m ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+    </button>
   );
 }
 
@@ -172,23 +229,27 @@ function GameCodeChip({ gameId }: { gameId: string }) {
 
 // ---------- Lobby ----------
 function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; isHost: boolean }) {
-  const [rounds, setRounds] = useState(game.num_rounds);
-  const [seconds, setSeconds] = useState(game.round_seconds);
-  const [finish, setFinish] = useState(game.finish_countdown);
+  const [rounds, setRounds] = useState<number | "">(game.num_rounds);
+  const [seconds, setSeconds] = useState<number | "">(game.round_seconds);
+  const [finish, setFinish] = useState<number | "">(game.finish_countdown);
+  const [difficulty, setDifficulty] = useState<Difficulty>((game.difficulty as Difficulty) ?? "medium");
   const [cats, setCats] = useState<string[]>(game.categories);
   const [newCat, setNewCat] = useState("");
 
+  const r = typeof rounds === "number" ? rounds : 5;
+  const s = typeof seconds === "number" ? seconds : 90;
+  const f = typeof finish === "number" ? finish : 15;
+
   const save = async () => {
     await supabase.from("games").update({
-      num_rounds: rounds, round_seconds: seconds, finish_countdown: finish, categories: cats,
-    }).eq("id", game.id);
+      num_rounds: r, round_seconds: s, finish_countdown: f, categories: cats, difficulty,
+    } as any).eq("id", game.id);
     toast.success("Settings saved");
   };
 
   const addBot = async () => {
-    const names = ["BotBuddy", "RoboRex", "MegaMind", "PixelPete", "ChipChamp"];
     const used = players.map(p => p.nickname);
-    const name = names.find(n => !used.includes(n)) ?? `Bot${Math.floor(Math.random()*99)}`;
+    const name = randomGamertag(used);
     await supabase.from("players").insert({
       game_id: game.id, nickname: name, emoji: pickRandomEmoji(players.map(p => p.emoji)), is_bot: true,
     });
@@ -197,29 +258,42 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
   const start = async () => {
     if (players.length < 1) return toast.error("Need at least 1 player");
     await save();
-    await startRound({ ...game, num_rounds: rounds, round_seconds: seconds, finish_countdown: finish, categories: cats });
+    await startRound({ ...game, num_rounds: r, round_seconds: s, finish_countdown: f, categories: cats, difficulty });
   };
 
   return (
-    <div className="card-pop p-6 space-y-5">
+    <div className="card-pop p-4 sm:p-6 space-y-4 sm:space-y-5">
       <div className="text-center">
-        <h2 className="font-display text-3xl font-bold">Lobby</h2>
-        <p className="text-muted-foreground">Waiting to start · {players.length}/10 players</p>
+        <h2 className="font-display text-2xl sm:text-3xl font-bold">Lobby</h2>
+        <p className="text-muted-foreground text-sm">Waiting to start · {players.length}/10 players</p>
       </div>
 
       {isHost ? (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <NumberField label="Rounds" value={rounds} setValue={setRounds} min={1} max={20} />
-            <NumberField label="Seconds / round" value={seconds} setValue={setSeconds} min={20} max={300} />
-            <NumberField label="Final countdown" value={finish} setValue={setFinish} min={5} max={60} />
+            <NumberField label="Sec/round" value={seconds} setValue={setSeconds} min={20} max={300} />
+            <NumberField label="Final s" value={finish} setValue={setFinish} min={5} max={60} />
           </div>
 
           <div>
-            <label className="block font-bold mb-2 flex items-center gap-2"><Settings className="size-4" /> Categories</label>
+            <label className="block text-xs font-bold text-muted-foreground mb-2">Difficulty</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["easy","medium","hard"] as Difficulty[]).map(d => (
+                <button key={d} onClick={() => setDifficulty(d)}
+                  className={`btn-pop py-2 text-xs sm:text-sm capitalize ${
+                    difficulty === d ? "bg-primary text-primary-foreground" : "bg-card text-foreground"
+                  }`}>{d}{d === "hard" ? " 🔥" : ""}</button>
+              ))}
+            </div>
+            {difficulty === "hard" && <p className="text-xs text-muted-foreground mt-1">Includes tough letters: Q, U, X, Y, Z</p>}
+          </div>
+
+          <div>
+            <label className="font-bold mb-2 flex items-center gap-2 text-sm"><Settings className="size-4" /> Categories</label>
             <div className="flex flex-wrap gap-2 mb-2">
               {cats.map((c) => (
-                <span key={c} className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground border-2 border-foreground/20 px-3 py-1 text-sm font-bold">
+                <span key={c} className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground border-2 border-foreground/20 px-3 py-1 text-xs sm:text-sm font-bold">
                   {c}
                   <button onClick={() => setCats(cats.filter(x => x !== c))}><X className="size-3.5" /></button>
                 </span>
@@ -227,24 +301,24 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
             </div>
             <div className="flex gap-2">
               <input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Add category…" maxLength={20}
-                className="flex-1 rounded-full border-2 border-foreground/20 px-3 py-2 text-sm bg-background focus:outline-none focus:border-primary" />
+                className="flex-1 min-w-0 rounded-full border-2 border-foreground/20 px-3 py-2 text-sm bg-background focus:outline-none focus:border-primary" />
               <button onClick={() => { if (newCat.trim()) { setCats([...cats, newCat.trim()]); setNewCat(""); } }}
-                className="btn-pop bg-accent text-accent-foreground px-3 py-2 text-sm flex items-center gap-1">
+                className="btn-pop bg-accent text-accent-foreground px-3 py-2 text-sm flex items-center gap-1 shrink-0">
                 <Plus className="size-4" /> Add
               </button>
             </div>
             {cats.length === 0 && <p className="text-xs text-destructive mt-1">Add at least one category</p>}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button onClick={save} className="btn-pop bg-card text-foreground px-4 py-2 text-sm">Save</button>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+            <button onClick={save} className="btn-pop bg-card text-foreground px-3 py-2 text-xs sm:text-sm">Save</button>
             <button onClick={addBot} disabled={players.length >= 10}
-              className="btn-pop text-foreground px-4 py-2 text-sm flex items-center gap-1"
+              className="btn-pop text-foreground px-3 py-2 text-xs sm:text-sm flex items-center justify-center gap-1"
               style={{ background: "var(--fun-4)" }}>
               <Bot className="size-4" /> Add bot
             </button>
             <button onClick={start} disabled={cats.length === 0}
-              className="btn-pop bg-primary text-primary-foreground px-5 py-2 ml-auto flex items-center gap-2">
+              className="btn-pop bg-primary text-primary-foreground px-4 py-2 text-sm sm:ml-auto col-span-2 flex items-center justify-center gap-2">
               <Play className="size-4" /> Start game
             </button>
           </div>
@@ -257,13 +331,19 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
 }
 
 function NumberField({ label, value, setValue, min, max }:
-  { label: string; value: number; setValue: (n: number) => void; min: number; max: number }) {
+  { label: string; value: number | ""; setValue: (n: number | "") => void; min: number; max: number }) {
   return (
-    <div>
-      <label className="block text-xs font-bold text-muted-foreground mb-1">{label}</label>
-      <input type="number" value={value} min={min} max={max}
-        onChange={(e) => setValue(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
-        className="w-full rounded-2xl border-2 border-foreground/20 px-3 py-2 font-bold text-center bg-background focus:outline-none focus:border-primary" />
+    <div className="min-w-0">
+      <label className="block text-xs font-bold text-muted-foreground mb-1 truncate">{label}</label>
+      <input type="text" inputMode="numeric" pattern="[0-9]*" value={value}
+        onChange={(e) => {
+          const v = e.target.value.replace(/[^0-9]/g, "");
+          if (v === "") { setValue(""); return; }
+          const n = parseInt(v, 10);
+          setValue(Math.min(max, n));
+        }}
+        onBlur={() => { if (value === "" || (typeof value === "number" && value < min)) setValue(min); }}
+        className="w-full rounded-2xl border-2 border-foreground/20 px-2 py-2 font-bold text-center bg-background focus:outline-none focus:border-primary" />
     </div>
   );
 }
@@ -451,7 +531,7 @@ function RoundResults({ game, players, answers, isHost }:
 }
 
 // ---------- Final leaderboard ----------
-function FinalLeaderboard({ players }: { players: Player[] }) {
+function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: string }) {
   const sorted = [...players].sort((a,b) => b.score - a.score);
   const titles = [
     { emoji: "🏆", title: "Word Master ✍️" },
@@ -459,39 +539,95 @@ function FinalLeaderboard({ players }: { players: Player[] }) {
     { emoji: "🥉", title: "Wordsmith 📚" },
   ];
   const fun = ["Animal Lover 🐾", "Explorer 🌍", "Foodie 🍕", "Cinephile 🎬", "Rookie 🌱"];
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const downloadImage = async () => {
+    if (!cardRef.current) return;
+    try {
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement("a");
+      link.download = `nameplacego-${gameId}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e: any) { toast.error("Couldn't generate image"); }
+  };
+
+  const shareNative = async () => {
+    if (!cardRef.current) return;
+    const winner = sorted[0];
+    const text = `🏆 ${winner?.nickname} just won NamePlaceGo! with ${winner?.score} pts. Play at ${window.location.origin}`;
+    try {
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const file = blob ? new File([blob], "nameplacego-win.png", { type: "image/png" }) : null;
+      if (file && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text, title: "NamePlaceGo!" });
+        return;
+      }
+      if (navigator.share) { await navigator.share({ text, url: window.location.origin }); return; }
+      await navigator.clipboard.writeText(text);
+      toast.success("Result copied — paste it anywhere!");
+    } catch { /* user dismissed */ }
+  };
+
+  const shareTwitter = () => {
+    const winner = sorted[0];
+    const text = `🏆 ${winner?.nickname} won NamePlaceGo! with ${winner?.score} pts. Try to beat them →`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.origin)}`;
+    window.open(url, "_blank");
+  };
+
+  const shareWhatsapp = () => {
+    const winner = sorted[0];
+    const text = `🏆 ${winner?.nickname} won NamePlaceGo! with ${winner?.score} pts. Play at ${window.location.origin}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+  };
 
   return (
-    <div className="card-pop p-6 space-y-5">
-      <div className="text-center">
-        <Trophy className="mx-auto size-12 text-warning" />
-        <h2 className="font-display text-4xl font-bold mt-2">Game over!</h2>
-      </div>
-      <div className="grid sm:grid-cols-3 gap-3">
-        {sorted.slice(0, 3).map((p, i) => (
-          <motion.div key={p.id}
-            initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: i * 0.15, type: "spring" }}
-            className={`card-pop p-4 text-center ${i === 0 ? "md:scale-110" : ""}`}
-            style={{ background: i === 0 ? "var(--fun-3)" : i === 1 ? "var(--fun-2)" : "var(--fun-1)" }}>
-            <div className="text-5xl">{titles[i].emoji}</div>
-            <div className="font-display text-2xl font-bold mt-2">{p.emoji} {p.nickname}</div>
-            <div className="font-display text-3xl font-bold tabular-nums">{p.score}</div>
-            <div className="text-sm font-bold mt-1">{titles[i].title}</div>
-          </motion.div>
-        ))}
-      </div>
-      {sorted.length > 3 && (
-        <ul className="space-y-1">
-          {sorted.slice(3).map((p, i) => (
-            <li key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-background/60">
-              <span className="font-display font-bold text-muted-foreground">#{i + 4}</span>
-              <span className="font-bold flex-1">{p.emoji} {p.nickname}</span>
-              <span className="text-sm text-muted-foreground">{fun[i % fun.length]}</span>
-              <span className="font-display font-bold tabular-nums">{p.score}</span>
-            </li>
+    <div className="space-y-4">
+      <div ref={cardRef} className="card-pop p-4 sm:p-6 space-y-5">
+        <div className="text-center">
+          <Trophy className="mx-auto size-12 text-warning" />
+          <h2 className="font-display text-3xl sm:text-4xl font-bold mt-2">Game over!</h2>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {sorted.slice(0, 3).map((p, i) => (
+            <motion.div key={p.id}
+              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: i * 0.15, type: "spring" }}
+              className={`card-pop p-4 text-center ${i === 0 ? "md:scale-110" : ""}`}
+              style={{ background: i === 0 ? "var(--fun-3)" : i === 1 ? "var(--fun-2)" : "var(--fun-1)" }}>
+              <div className="text-5xl">{titles[i].emoji}</div>
+              <div className="font-display text-xl sm:text-2xl font-bold mt-2 break-words">{p.emoji} {p.nickname}</div>
+              <div className="font-display text-3xl font-bold tabular-nums">{p.score}</div>
+              <div className="text-sm font-bold mt-1">{titles[i].title}</div>
+            </motion.div>
           ))}
-        </ul>
-      )}
+        </div>
+        {sorted.length > 3 && (
+          <ul className="space-y-1">
+            {sorted.slice(3).map((p, i) => (
+              <li key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-background/60">
+                <span className="font-display font-bold text-muted-foreground">#{i + 4}</span>
+                <span className="font-bold flex-1 truncate">{p.emoji} {p.nickname}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground hidden sm:inline">{fun[i % fun.length]}</span>
+                <span className="font-display font-bold tabular-nums">{p.score}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-center text-xs text-muted-foreground font-bold">nameplacego.app · #NamePlaceGo</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button onClick={shareNative} className="btn-pop bg-primary text-primary-foreground py-2.5 text-sm flex items-center justify-center gap-1.5">
+          <Share2 className="size-4" /> Share
+        </button>
+        <button onClick={downloadImage} className="btn-pop bg-card text-foreground py-2.5 text-sm">📷 Save image</button>
+        <button onClick={shareTwitter} className="btn-pop bg-secondary text-secondary-foreground py-2.5 text-sm">𝕏 Twitter</button>
+        <button onClick={shareWhatsapp} className="btn-pop py-2.5 text-sm" style={{ background: "var(--fun-4)" }}>💬 WhatsApp</button>
+      </div>
     </div>
   );
 }
