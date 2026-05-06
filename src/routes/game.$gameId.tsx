@@ -120,19 +120,19 @@ function GameRoute() {
   const isHost = game.host_player_id === me.playerId;
 
   return (
-    <main className="min-h-screen p-3 md:p-6 max-w-7xl mx-auto">
-      <header className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold">NamePlaceGo!</h1>
+    <main className="min-h-screen p-2 sm:p-3 md:p-6 max-w-7xl mx-auto">
+      <header className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold truncate">NamePlaceGo!</h1>
           <GameCodeChip gameId={gameId} />
         </div>
-        <button onClick={leave} className="btn-pop bg-card text-foreground px-3 py-2 text-sm flex items-center gap-1">
-          <LogOut className="size-4" /> Leave
+        <button onClick={leave} className="btn-pop bg-card text-foreground px-3 py-2 text-sm flex items-center gap-1 shrink-0">
+          <LogOut className="size-4" /> <span className="hidden xs:inline">Leave</span>
         </button>
       </header>
 
-      <div className="grid lg:grid-cols-[1fr_320px] gap-4">
-        <section className="space-y-4">
+      <div className="grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">
+        <section className="space-y-3 sm:space-y-4 min-w-0">
           {game.status === "lobby" && <LobbyView game={game} players={players} isHost={isHost} />}
           {game.status === "playing" && <PlayingView game={game} players={players} answers={answers} me={me} />}
           {game.status === "scoring" && (
