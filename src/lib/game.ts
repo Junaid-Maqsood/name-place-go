@@ -167,6 +167,29 @@ export async function nextStep(game: Game) {
   }
 }
 
+export async function kickPlayer(gameId: string, player: { id: string; nickname: string; is_bot: boolean }) {
+  await supabase.from("players").delete().eq("id", player.id);
+  if (player.is_bot) return { banned: false };
+  // Track ban count
+  const { data: existing } = await supabase
+    .from("game_bans" as any).select("kick_count").eq("game_id", gameId).eq("nickname", player.nickname).maybeSingle();
+  const newCount = ((existing as any)?.kick_count ?? 0) + 1;
+  if (existing) {
+    await supabase.from("game_bans" as any).update({ kick_count: newCount })
+      .eq("game_id", gameId).eq("nickname", player.nickname);
+  } else {
+    await supabase.from("game_bans" as any).insert({ game_id: gameId, nickname: player.nickname, kick_count: newCount });
+  }
+  await supabase.from("chat_messages").insert({
+    game_id: gameId, nickname: "system",
+    content: newCount >= 2
+      ? `🚫 ${player.nickname} was permanently banned`
+      : `👋 ${player.nickname} was kicked by host`,
+    kind: "system",
+  });
+  return { banned: newCount >= 2 };
+}
+
 export function getTitleForPlayer(name: string, idx: number, categories: string[]) {
   const titles = [
     { emoji: "🏆", title: "Word Master" },
