@@ -103,12 +103,34 @@ export type Database = {
           },
         ]
       }
+      game_bans: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          nickname: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          nickname: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          nickname?: string
+        }
+        Relationships: []
+      }
       games: {
         Row: {
           categories: string[]
           created_at: string
           current_letter: string | null
           current_round: number
+          difficulty: string
           finish_countdown: number
           finish_triggered_at: string | null
           host_player_id: string | null
@@ -124,6 +146,7 @@ export type Database = {
           created_at?: string
           current_letter?: string | null
           current_round?: number
+          difficulty?: string
           finish_countdown?: number
           finish_triggered_at?: string | null
           host_player_id?: string | null
@@ -139,6 +162,7 @@ export type Database = {
           created_at?: string
           current_letter?: string | null
           current_round?: number
+          difficulty?: string
           finish_countdown?: number
           finish_triggered_at?: string | null
           host_player_id?: string | null
@@ -160,6 +184,7 @@ export type Database = {
           id: string
           is_bot: boolean
           joined_at: string
+          kick_count: number
           nickname: string
           score: number
         }
@@ -171,6 +196,7 @@ export type Database = {
           id?: string
           is_bot?: boolean
           joined_at?: string
+          kick_count?: number
           nickname: string
           score?: number
         }
@@ -182,6 +208,7 @@ export type Database = {
           id?: string
           is_bot?: boolean
           joined_at?: string
+          kick_count?: number
           nickname?: string
           score?: number
         }
