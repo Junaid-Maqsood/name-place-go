@@ -14,7 +14,187 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      answers: {
+        Row: {
+          category: string
+          created_at: string
+          game_id: string
+          id: string
+          player_id: string
+          points: number
+          round: number
+          status: string
+          value: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          game_id: string
+          id?: string
+          player_id: string
+          points?: number
+          round: number
+          status?: string
+          value?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          player_id?: string
+          points?: number
+          round?: number
+          status?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answers_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answers_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          game_id: string
+          id: string
+          kind: string
+          nickname: string
+          player_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          game_id: string
+          id?: string
+          kind?: string
+          nickname: string
+          player_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          kind?: string
+          nickname?: string
+          player_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      games: {
+        Row: {
+          categories: string[]
+          created_at: string
+          current_letter: string | null
+          current_round: number
+          finish_countdown: number
+          finish_triggered_at: string | null
+          host_player_id: string | null
+          id: string
+          num_rounds: number
+          round_seconds: number
+          round_started_at: string | null
+          status: string
+          used_letters: string[]
+        }
+        Insert: {
+          categories?: string[]
+          created_at?: string
+          current_letter?: string | null
+          current_round?: number
+          finish_countdown?: number
+          finish_triggered_at?: string | null
+          host_player_id?: string | null
+          id: string
+          num_rounds?: number
+          round_seconds?: number
+          round_started_at?: string | null
+          status?: string
+          used_letters?: string[]
+        }
+        Update: {
+          categories?: string[]
+          created_at?: string
+          current_letter?: string | null
+          current_round?: number
+          finish_countdown?: number
+          finish_triggered_at?: string | null
+          host_player_id?: string | null
+          id?: string
+          num_rounds?: number
+          round_seconds?: number
+          round_started_at?: string | null
+          status?: string
+          used_letters?: string[]
+        }
+        Relationships: []
+      }
+      players: {
+        Row: {
+          connected: boolean
+          emoji: string
+          finished_round: boolean
+          game_id: string
+          id: string
+          is_bot: boolean
+          joined_at: string
+          nickname: string
+          score: number
+        }
+        Insert: {
+          connected?: boolean
+          emoji?: string
+          finished_round?: boolean
+          game_id: string
+          id?: string
+          is_bot?: boolean
+          joined_at?: string
+          nickname: string
+          score?: number
+        }
+        Update: {
+          connected?: boolean
+          emoji?: string
+          finished_round?: boolean
+          game_id?: string
+          id?: string
+          is_bot?: boolean
+          joined_at?: string
+          nickname?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
