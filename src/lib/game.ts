@@ -119,6 +119,10 @@ export async function joinGame(gameId: string, nickname: string, emoji: string) 
   if (error) throw error;
   if (!game) throw new Error("Game not found");
   if (game.status !== "lobby") throw new Error("Game already in progress");
+  // Check ban list
+  const { data: ban } = await supabase
+    .from("game_bans" as any).select("kick_count").eq("game_id", gameId).eq("nickname", nickname).maybeSingle();
+  if (ban && (ban as any).kick_count >= 2) throw new Error("You are banned from this game");
   const { count } = await supabase.from("players").select("*", { count: "exact", head: true }).eq("game_id", gameId);
   if ((count ?? 0) >= 10) throw new Error("Lobby is full (10 players max)");
   const { data: player, error: pErr } = await supabase
