@@ -2,7 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const PLAYER_EMOJIS = ["🦊","🐼","🦁","🐸","🐙","🦄","🐵","🐯","🐧","🐨","🦉","🐲","🦋","🐳"];
 export const DEFAULT_CATEGORIES = ["Name","Place","Animal","Thing","Food","Movie"];
-export const ALPHABET = "ABCDEFGHIJKLMNOPRSTUVW".split(""); // skip very hard letters
+
+export type Difficulty = "easy" | "medium" | "hard";
+export const ALPHABETS: Record<Difficulty, string[]> = {
+  easy: "ABCDEFGHIJKLMNOPRST".split("").filter(l => !"YZ".includes(l)),
+  medium: "ABCDEFGHIJKLMNOPRSTUVW".split(""),
+  hard: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""), // includes Q U X Y Z
+};
+export const ALPHABET = ALPHABETS.medium;
 
 export type GameStatus = "lobby" | "playing" | "scoring" | "results" | "finished";
 
@@ -19,6 +26,7 @@ export interface Game {
   round_started_at: string | null;
   finish_triggered_at: string | null;
   used_letters: string[];
+  difficulty: Difficulty;
 }
 
 export interface Player {
