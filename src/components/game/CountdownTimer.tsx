@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { sfx } from "@/lib/sfx";
 
 export function CountdownTimer({
   startedAt, durationSec, finishTriggeredAt, finishCountdown, onZero,
