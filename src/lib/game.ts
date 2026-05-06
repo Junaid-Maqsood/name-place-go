@@ -133,7 +133,8 @@ export async function joinGame(gameId: string, nickname: string, emoji: string) 
 
 export async function startRound(game: Game) {
   const nextRound = game.current_round + 1;
-  const letter = pickLetter(game.used_letters);
+  const letter = pickLetter(game.used_letters, game.difficulty ?? "medium");
+  if (!letter) throw new Error("No more letters available!");
   await supabase.from("players").update({ finished_round: false }).eq("game_id", game.id);
   await supabase.from("games").update({
     status: "playing",
