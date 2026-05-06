@@ -78,12 +78,44 @@ function GameRoute() {
     })();
   }, [game?.current_round, game?.status, gameId]);
 
-  // Confetti when finished
+  // Confetti + fireworks sound when finished
   useEffect(() => {
     if (game?.status === "finished") {
       confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
+      sfx.fireworks();
+      setTimeout(() => confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 } }), 600);
     }
   }, [game?.status]);
+
+  // Sounds: round started / scoring (round ended)
+  const prevStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!game) return;
+    if (prevStatus.current && prevStatus.current !== game.status) {
+      if (game.status === "playing") sfx.start();
+      if (game.status === "scoring") sfx.end();
+    }
+    prevStatus.current = game.status;
+  }, [game?.status]);
+
+  // Sound when a player joins the lobby
+  const prevPlayerCount = useRef<number>(0);
+  useEffect(() => {
+    if (game?.status === "lobby" && players.length > prevPlayerCount.current && prevPlayerCount.current > 0) {
+      sfx.join();
+    }
+    prevPlayerCount.current = players.length;
+  }, [players.length, game?.status]);
+
+  // Was-I-kicked detector
+  useEffect(() => {
+    if (!me || !game) return;
+    if (players.length > 0 && !players.find(p => p.id === me.playerId)) {
+      toast.error("You were removed from the game");
+      clearSession();
+      navigate({ to: "/" });
+    }
+  }, [players, me, game, navigate]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
