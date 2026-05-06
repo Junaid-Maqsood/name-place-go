@@ -239,7 +239,7 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
           <div className="flex flex-wrap gap-2">
             <button onClick={save} className="btn-pop bg-card text-foreground px-4 py-2 text-sm">Save</button>
             <button onClick={addBot} disabled={players.length >= 10}
-              className="btn-pop bg-fun-4 text-foreground px-4 py-2 text-sm flex items-center gap-1"
+              className="btn-pop text-foreground px-4 py-2 text-sm flex items-center gap-1"
               style={{ background: "var(--fun-4)" }}>
               <Bot className="size-4" /> Add bot
             </button>
