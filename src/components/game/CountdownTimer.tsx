@@ -40,6 +40,16 @@ export function CountdownTimer({
   const pct = (remaining / total) * 100;
   const danger = sec <= 10;
 
+  // Tick sound for last 10 seconds
+  const lastSec = useRef<number>(-1);
+  useEffect(() => {
+    if (remaining > 0 && sec <= 10 && sec !== lastSec.current) {
+      lastSec.current = sec;
+      sfx.tick();
+    }
+    if (sec > 10) lastSec.current = -1;
+  }, [sec, remaining]);
+
   return (
     <div className="card-pop p-3">
       <div className="flex items-center justify-between mb-2">
