@@ -1,5 +1,5 @@
 # 🎮 Name Place Go! (Multiplayer Game)
-
+**Game link:** https://name-place-go-play.lovable.app
 A fun, fast-paced multiplayer browser game inspired by the classic **“Name Place Animal Thing”**. Built with a modern full-stack setup using Lovable, TanStack, Supabase, and Cloudflare.
 
 ---
