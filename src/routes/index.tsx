@@ -127,7 +127,7 @@ function Home() {
         </div>
       </motion.div>
 
-      <p className="mt-8 text-xs text-muted-foreground">Up to 10 players · No account needed</p>
+      <p className="mt-8 text-xs text-muted-foreground text-center">Up to 10 players · No account needed</p>
     </main>
   );
 }

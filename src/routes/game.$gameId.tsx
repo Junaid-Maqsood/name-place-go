@@ -120,19 +120,19 @@ function GameRoute() {
   const isHost = game.host_player_id === me.playerId;
 
   return (
-    <main className="min-h-screen p-3 md:p-6 max-w-7xl mx-auto">
-      <header className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl font-bold">NamePlaceGo!</h1>
+    <main className="min-h-screen p-2 sm:p-3 md:p-6 max-w-7xl mx-auto">
+      <header className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-bold truncate">NamePlaceGo!</h1>
           <GameCodeChip gameId={gameId} />
         </div>
-        <button onClick={leave} className="btn-pop bg-card text-foreground px-3 py-2 text-sm flex items-center gap-1">
-          <LogOut className="size-4" /> Leave
+        <button onClick={leave} className="btn-pop bg-card text-foreground px-3 py-2 text-sm flex items-center gap-1 shrink-0">
+          <LogOut className="size-4" /> <span className="hidden xs:inline">Leave</span>
         </button>
       </header>
 
-      <div className="grid lg:grid-cols-[1fr_320px] gap-4">
-        <section className="space-y-4">
+      <div className="grid lg:grid-cols-[1fr_320px] gap-3 sm:gap-4">
+        <section className="space-y-3 sm:space-y-4 min-w-0">
           {game.status === "lobby" && <LobbyView game={game} players={players} isHost={isHost} />}
           {game.status === "playing" && <PlayingView game={game} players={players} answers={answers} me={me} />}
           {game.status === "scoring" && (
@@ -306,14 +306,24 @@ function PlayingView({ game, players, answers, me }:
     await endRound(game);
   }, [isHost, game]);
 
-  // Trigger final countdown when first non-bot finishes
+  // Trigger final 15s countdown when ANY player (human or bot) finishes with all categories filled
   useEffect(() => {
     if (!isHost || game.finish_triggered_at) return;
-    const someoneFinished = players.some(p => p.finished_round && !p.is_bot);
-    if (someoneFinished && !allFinished) {
-      supabase.from("games").update({ finish_triggered_at: new Date().toISOString() }).eq("id", game.id);
+    const finisher = players.find(p => p.finished_round);
+    if (!finisher || allFinished) return;
+    // Verify they actually answered all categories
+    const theirAnswers = answers.filter(a => a.player_id === finisher.id && a.round === game.current_round);
+    const filled = game.categories.every(c => {
+      const a = theirAnswers.find(x => x.category === c);
+      return a && a.value && a.value.trim().length > 0;
+    });
+    if (filled) {
+      supabase.from("games").update({
+        finish_triggered_at: new Date().toISOString(),
+        finish_countdown: 15,
+      }).eq("id", game.id);
     }
-  }, [isHost, players, allFinished, game.finish_triggered_at, game.id]);
+  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories]);
 
   // If all humans finished (incl. via final countdown), end early
   useEffect(() => {

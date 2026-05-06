@@ -115,7 +115,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <div className="flex min-h-screen flex-col">
+        <div className="flex-1">
+          <Outlet />
+        </div>
+        <footer className="py-4 px-4 text-center text-xs sm:text-sm font-bold text-muted-foreground border-t-2 border-foreground/10">
+          Made with <span className="text-destructive">♥</span> by J.M
+        </footer>
+      </div>
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );
