@@ -40,7 +40,26 @@ export function ChatPanel({ gameId, nickname, playerId }: { gameId: string; nick
 
   const send = async (content: string) => {
     if (!content.trim()) return;
-    await supabase.from("chat_messages").insert({ game_id: gameId, nickname, player_id: playerId, content: content.slice(0, 200) });
+    const status = trackSpam(playerId);
+    if (status === "warn") {
+      toast.warning("Slow down with the spam — next time you'll be kicked!");
+      return;
+    }
+    if (status === "kick") {
+      toast.error("You've been kicked for spamming");
+      await supabase.from("chat_messages").insert({
+        game_id: gameId, nickname: "system",
+        content: `🚫 ${nickname} was kicked for spamming`, kind: "system",
+      });
+      await supabase.from("players").delete().eq("id", playerId);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("npg:session");
+        window.location.href = "/";
+      }
+      return;
+    }
+    const clean = censor(content).slice(0, 200);
+    await supabase.from("chat_messages").insert({ game_id: gameId, nickname, player_id: playerId, content: clean });
     setInput("");
   };
 
