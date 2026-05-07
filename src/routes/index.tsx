@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { createGame, joinGame, loadSession, pickRandomEmoji, PLAYER_EMOJIS, clearSession } from "@/lib/game";
+import { randomGamertag } from "@/lib/gamertags";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Users, ArrowRight, Moon, Sun } from "lucide-react";
+import { Sparkles, Users, ArrowRight, Moon, Sun, Shuffle } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Home,
