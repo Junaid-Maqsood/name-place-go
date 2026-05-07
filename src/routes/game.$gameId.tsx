@@ -471,10 +471,10 @@ function PlayingView({ game, players, answers, me }:
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-[auto_1fr] gap-4 items-center">
+      <div className="grid grid-cols-[auto_1fr] gap-3 sm:gap-4 items-center">
         <motion.div key={game.current_letter} initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", bounce: 0.6 }}
-          className="letter-tile size-24 md:size-32 flex items-center justify-center text-6xl md:text-7xl">
+          className="letter-tile size-20 sm:size-24 md:size-32 flex items-center justify-center text-5xl sm:text-6xl md:text-7xl">
           {game.current_letter}
         </motion.div>
         <div className="space-y-2">
