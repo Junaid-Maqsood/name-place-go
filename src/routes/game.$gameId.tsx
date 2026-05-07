@@ -117,6 +117,15 @@ function GameRoute() {
     }
   }, [players, me, game, navigate]);
 
+  // Auto-advance to final leaderboard when last round results are in
+  useEffect(() => {
+    if (!game || !me) return;
+    const isHost = game.host_player_id === me.playerId;
+    if (isHost && game.status === "results" && game.current_round >= game.num_rounds) {
+      nextStep(game).catch(() => {});
+    }
+  }, [game, me]);
+
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nicknameInput.trim()) return;
@@ -248,8 +257,11 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
   };
 
   const addBot = async () => {
+    if (players.length >= 10) { toast.error("Lobby is full (10 max)"); return; }
     const used = players.map(p => p.nickname);
     const name = randomGamertag(used);
+    const { count } = await supabase.from("players").select("*", { count: "exact", head: true }).eq("game_id", game.id);
+    if ((count ?? 0) >= 10) { toast.error("Lobby is full (10 max)"); return; }
     await supabase.from("players").insert({
       game_id: game.id, nickname: name, emoji: pickRandomEmoji(players.map(p => p.emoji)), is_bot: true,
     });
@@ -272,8 +284,8 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
         <>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <NumberField label="Rounds" value={rounds} setValue={setRounds} min={1} max={20} />
-            <NumberField label="Sec/round" value={seconds} setValue={setSeconds} min={20} max={300} />
-            <NumberField label="Final s" value={finish} setValue={setFinish} min={5} max={60} />
+            <NumberField label="Seconds/round" value={seconds} setValue={setSeconds} min={20} max={300} />
+            <NumberField label="Final Countdown" value={finish} setValue={setFinish} min={5} max={60} />
           </div>
 
           <div>
@@ -357,9 +369,33 @@ function PlayingView({ game, players, answers, me }:
     for (const c of game.categories) o[c] = myAnswers.find(a => a.category === c)?.value ?? "";
     return o;
   });
+  // Reset draft when round changes
+  const lastRound = useRef(game.current_round);
+  useEffect(() => {
+    if (lastRound.current !== game.current_round) {
+      const o: Record<string, string> = {};
+      for (const c of game.categories) o[c] = "";
+      setDraft(o);
+      lastRound.current = game.current_round;
+    }
+  }, [game.current_round, game.categories]);
+
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
+
   const me_player = players.find(p => p.id === me.playerId);
   const isHost = game.host_player_id === me.playerId;
-  const allFinished = players.filter(p => !p.is_bot).every(p => p.finished_round);
+
+  // Round age guard — prevents stale finished_round flags from ending fresh round
+  const roundStartMs = game.round_started_at ? new Date(game.round_started_at).getTime() : 0;
+  const roundIsFresh = Date.now() - roundStartMs < 2000;
+
+  // Only count humans as finished if they actually have an answer row for THIS round
+  const humans = players.filter(p => !p.is_bot);
+  const finishedHumans = humans.filter(p =>
+    p.finished_round && answers.some(a => a.player_id === p.id && a.round === game.current_round)
+  );
+  const allFinished = humans.length > 0 && finishedHumans.length === humans.length;
 
   // Bot auto-answers when round starts
   useEffect(() => {
@@ -379,19 +415,34 @@ function PlayingView({ game, players, answers, me }:
     return () => clearTimeout(t);
   }, [isHost, game.current_round, game.current_letter, game.id, game.categories, players]);
 
-  // Trigger end-of-round when timer hits 0 OR all human players finished triggers final countdown that expires
   const triggerEnd = useCallback(async () => {
     if (!isHost) return;
     if (game.status !== "playing") return;
     await endRound(game);
   }, [isHost, game]);
 
-  // Trigger final 15s countdown when ANY player (human or bot) finishes with all categories filled
+  // Auto-submit current draft when timer hits zero (even without clicking Done)
+  const autoSubmit = useCallback(async () => {
+    if (me_player?.finished_round) return;
+    const d = draftRef.current;
+    const rows = game.categories.map(cat => ({
+      game_id: game.id, round: game.current_round, player_id: me.playerId, category: cat, value: d[cat] ?? "",
+    }));
+    await supabase.from("answers").upsert(rows, { onConflict: "game_id,round,player_id,category" });
+    await supabase.from("players").update({ finished_round: true }).eq("id", me.playerId);
+  }, [game.id, game.categories, game.current_round, me.playerId, me_player?.finished_round]);
+
+  const onTimerZero = useCallback(async () => {
+    await autoSubmit();
+    if (isHost) await triggerEnd();
+  }, [autoSubmit, isHost, triggerEnd]);
+
+  // Trigger final countdown when ANY player finishes with all categories filled (uses lobby finish_countdown)
   useEffect(() => {
     if (!isHost || game.finish_triggered_at) return;
+    if (roundIsFresh) return;
     const finisher = players.find(p => p.finished_round);
     if (!finisher || allFinished) return;
-    // Verify they actually answered all categories
     const theirAnswers = answers.filter(a => a.player_id === finisher.id && a.round === game.current_round);
     const filled = game.categories.every(c => {
       const a = theirAnswers.find(x => x.category === c);
@@ -400,15 +451,14 @@ function PlayingView({ game, players, answers, me }:
     if (filled) {
       supabase.from("games").update({
         finish_triggered_at: new Date().toISOString(),
-        finish_countdown: 15,
       }).eq("id", game.id);
     }
-  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories]);
+  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories, roundIsFresh]);
 
-  // If all humans finished (incl. via final countdown), end early
+  // If all humans finished (with submitted answers), end early — but not in fresh round
   useEffect(() => {
-    if (isHost && allFinished && game.status === "playing") triggerEnd();
-  }, [isHost, allFinished, game.status, triggerEnd]);
+    if (isHost && allFinished && game.status === "playing" && !roundIsFresh) triggerEnd();
+  }, [isHost, allFinished, game.status, triggerEnd, roundIsFresh]);
 
   const submit = async () => {
     const rows = game.categories.map(cat => ({
@@ -434,7 +484,7 @@ function PlayingView({ game, players, answers, me }:
             durationSec={game.round_seconds}
             finishTriggeredAt={game.finish_triggered_at}
             finishCountdown={game.finish_countdown}
-            onZero={triggerEnd}
+            onZero={onTimerZero}
           />
         </div>
       </div>
@@ -591,19 +641,29 @@ function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: stri
           <Trophy className="mx-auto size-12 text-warning" />
           <h2 className="font-display text-3xl sm:text-4xl font-bold mt-2">Game over!</h2>
         </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          {sorted.slice(0, 3).map((p, i) => (
-            <motion.div key={p.id}
-              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: i * 0.15, type: "spring" }}
-              className={`card-pop p-4 text-center ${i === 0 ? "md:scale-110" : ""}`}
-              style={{ background: i === 0 ? "var(--fun-3)" : i === 1 ? "var(--fun-2)" : "var(--fun-1)" }}>
-              <div className="text-5xl">{titles[i].emoji}</div>
-              <div className="font-display text-xl sm:text-2xl font-bold mt-2 break-words">{p.emoji} {p.nickname}</div>
-              <div className="font-display text-3xl font-bold tabular-nums">{p.score}</div>
-              <div className="text-sm font-bold mt-1">{titles[i].title}</div>
-            </motion.div>
-          ))}
+        <div className="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-3">
+          {[1, 0, 2].map((rank) => {
+            const p = sorted[rank];
+            if (!p) return null;
+            const sizeCls =
+              rank === 0 ? "w-full sm:w-56 sm:scale-110 z-10" :
+              rank === 1 ? "w-full sm:w-48 sm:opacity-95" :
+              "w-full sm:w-40 sm:opacity-90 sm:scale-95";
+            const orderCls = rank === 1 ? "sm:order-1" : rank === 0 ? "sm:order-2" : "sm:order-3";
+            const bg = rank === 0 ? "var(--fun-3)" : rank === 1 ? "var(--fun-2)" : "var(--fun-1)";
+            return (
+              <motion.div key={p.id}
+                initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: rank * 0.15, type: "spring" }}
+                className={`card-pop p-4 text-center ${sizeCls} ${orderCls}`}
+                style={{ background: bg }}>
+                <div className={rank === 0 ? "text-6xl" : "text-4xl"}>{titles[rank].emoji}</div>
+                <div className="font-display text-lg sm:text-xl font-bold mt-2 break-words">{p.emoji} {p.nickname}</div>
+                <div className="font-display text-2xl sm:text-3xl font-bold tabular-nums">{p.score}</div>
+                <div className="text-xs sm:text-sm font-bold mt-1">{titles[rank].title}</div>
+              </motion.div>
+            );
+          })}
         </div>
         {sorted.length > 3 && (
           <ul className="space-y-1">
