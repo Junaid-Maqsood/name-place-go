@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { createGame, joinGame, loadSession, pickRandomEmoji, PLAYER_EMOJIS, clearSession } from "@/lib/game";
+import { randomGamertag } from "@/lib/gamertags";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Users, ArrowRight, Moon, Sun } from "lucide-react";
+import { Sparkles, Users, ArrowRight, Moon, Sun, Shuffle } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -88,9 +89,17 @@ function Home() {
 
         <div>
           <label className="block font-bold mb-2">Your nickname</label>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)}
-            maxLength={16} placeholder="LegendaryLlama"
-            className="w-full text-lg rounded-2xl border-3 border-foreground/30 px-4 py-3 bg-background font-bold focus:outline-none focus:border-primary" />
+          <div className="flex gap-2">
+            <input value={nickname} onChange={(e) => setNickname(e.target.value)}
+              maxLength={16} placeholder="e.g CrazyFrog"
+              className="flex-1 min-w-0 text-lg rounded-2xl border-3 border-foreground/30 px-4 py-3 bg-background font-bold focus:outline-none focus:border-primary" />
+            <button type="button" onClick={() => setNickname(randomGamertag())}
+              title="Random nickname"
+              className="btn-pop bg-accent text-accent-foreground px-3 flex items-center justify-center shrink-0"
+              aria-label="Generate random nickname">
+              <Shuffle className="size-5" />
+            </button>
+          </div>
         </div>
 
         <div>
@@ -116,18 +125,16 @@ function Home() {
           <div className="flex-1 h-px bg-foreground/20" />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
             maxLength={6} placeholder="Enter Game ID"
-            className="flex-1 text-center font-display tracking-widest text-2xl uppercase rounded-2xl border-3 border-foreground/30 px-4 py-3 bg-background focus:outline-none focus:border-secondary" />
+            className="flex-1 min-w-0 text-center font-display tracking-widest text-2xl uppercase rounded-2xl border-3 border-foreground/30 px-4 py-3 bg-background focus:outline-none focus:border-secondary" />
           <button onClick={handleJoin} disabled={loading}
-            className="btn-pop bg-secondary text-secondary-foreground px-5 flex items-center gap-2">
+            className="btn-pop bg-secondary text-secondary-foreground px-5 py-3 flex items-center justify-center gap-2">
             <Users className="size-5" /> Join <ArrowRight className="size-4" />
           </button>
         </div>
       </motion.div>
-
-      <p className="mt-8 text-xs text-muted-foreground text-center">Up to 10 players · No account needed</p>
     </main>
   );
 }

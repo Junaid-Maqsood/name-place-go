@@ -198,7 +198,7 @@ function GameRoute() {
             </div>
           )}
           {game.status === "results" && <RoundResults game={game} players={players} answers={answers} isHost={isHost} />}
-          {game.status === "finished" && <FinalLeaderboard players={players} gameId={gameId} />}
+          {game.status === "finished" && <FinalLeaderboard players={players} gameId={gameId} game={game} isHost={isHost} />}
         </section>
 
         <aside className="space-y-4">
@@ -282,7 +282,7 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
 
       {isHost ? (
         <>
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
             <NumberField label="Rounds" value={rounds} setValue={setRounds} min={1} max={20} />
             <NumberField label="Seconds/round" value={seconds} setValue={setSeconds} min={20} max={300} />
             <NumberField label="Final Countdown" value={finish} setValue={setFinish} min={5} max={60} />
@@ -471,10 +471,10 @@ function PlayingView({ game, players, answers, me }:
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-[auto_1fr] gap-4 items-center">
+      <div className="grid grid-cols-[auto_1fr] gap-3 sm:gap-4 items-center">
         <motion.div key={game.current_letter} initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", bounce: 0.6 }}
-          className="letter-tile size-24 md:size-32 flex items-center justify-center text-6xl md:text-7xl">
+          className="letter-tile size-20 sm:size-24 md:size-32 flex items-center justify-center text-5xl sm:text-6xl md:text-7xl">
           {game.current_letter}
         </motion.div>
         <div className="space-y-2">
@@ -581,7 +581,7 @@ function RoundResults({ game, players, answers, isHost }:
 }
 
 // ---------- Final leaderboard ----------
-function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: string }) {
+function FinalLeaderboard({ players, gameId, game, isHost }: { players: Player[]; gameId: string; game: Game; isHost: boolean }) {
   const sorted = [...players].sort((a,b) => b.score - a.score);
   const titles = [
     { emoji: "🏆", title: "Word Master ✍️" },
@@ -688,6 +688,21 @@ function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: stri
         <button onClick={shareTwitter} className="btn-pop bg-secondary text-secondary-foreground py-2.5 text-sm">𝕏 Twitter</button>
         <button onClick={shareWhatsapp} className="btn-pop py-2.5 text-sm" style={{ background: "var(--fun-4)" }}>💬 WhatsApp</button>
       </div>
+
+      {isHost && (
+        <button onClick={async () => {
+          await supabase.from("answers").delete().eq("game_id", game.id);
+          await supabase.from("players").update({ score: 0, finished_round: false }).eq("game_id", game.id);
+          await supabase.from("games").update({
+            status: "lobby", current_round: 0, current_letter: null,
+            round_started_at: null, finish_triggered_at: null, used_letters: [],
+          }).eq("id", game.id);
+          toast.success("Rematch! Back to lobby — settings preserved.");
+        }}
+          className="w-full btn-pop bg-accent text-accent-foreground py-3 text-lg">
+          🔁 Rematch (back to lobby)
+        </button>
+      )}
     </div>
   );
 }

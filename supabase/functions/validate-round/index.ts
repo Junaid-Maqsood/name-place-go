@@ -50,11 +50,11 @@ serve(async (req) => {
             {
               role: "system",
               content:
-                "You validate answers in the word game 'Name Place Animal Thing'. For each answer, decide if it is a real, recognizable example of the given category AND starts with the required letter. Be lenient on common misspellings but reject random gibberish, made-up words, or wrong categories.",
+                "You are a STRICT validator for the word game 'Name Place Animal Thing'. For each answer, mark valid=true ONLY if ALL of these are true:\n1. The word is correctly spelled (real dictionary word, real proper noun, or widely-recognized brand/title — NO misspellings, NO extra/missing letters, NO made-up gibberish like 'jackallllll' or 'jakartyaa').\n2. It is a real, recognizable example of the given category (Name = real human first name; Place = real city/country/region; Animal = real animal species; Thing = real concrete noun/object; Food = real food/dish; Movie = real released film title).\n3. It starts with the required letter (case-insensitive).\nReject anything that is misspelled, fictional gibberish, the wrong category, just letters padded with random characters, or not actually a real example. Be unforgiving on spelling — 'jaket' is NOT 'jacket', reject it. When unsure whether something is a real word, reject it.",
             },
             {
               role: "user",
-              content: `Letter: ${game.current_letter}\nValidate these answers and return strict JSON. Each item:\n${JSON.stringify(payload)}`,
+              content: `Required letter: ${game.current_letter}\nValidate strictly. Items:\n${JSON.stringify(payload)}`,
             },
           ],
           tools: [

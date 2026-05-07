@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export const PLAYER_EMOJIS = ["🦊","🐼","🦁","🐸","🐙","🦄","🐵","🐯","🐧","🐨","🦉","🐲","🦋","🐳"];
+export const PLAYER_EMOJIS = ["🦊","🐼","🦁","🐸","🐙","🦄","🐵","🐯","🐧","🐨","🦉","🐲","🦋","🐳","🧚","🧙","🧛","🧜","🧝","🧞","👹"];
 export const DEFAULT_CATEGORIES = ["Name","Place","Animal","Thing","Food","Movie"];
 
 export type Difficulty = "easy" | "medium" | "hard";
