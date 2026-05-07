@@ -688,6 +688,21 @@ function FinalLeaderboard({ players, gameId, game, isHost }: { players: Player[]
         <button onClick={shareTwitter} className="btn-pop bg-secondary text-secondary-foreground py-2.5 text-sm">𝕏 Twitter</button>
         <button onClick={shareWhatsapp} className="btn-pop py-2.5 text-sm" style={{ background: "var(--fun-4)" }}>💬 WhatsApp</button>
       </div>
+
+      {isHost && (
+        <button onClick={async () => {
+          await supabase.from("answers").delete().eq("game_id", game.id);
+          await supabase.from("players").update({ score: 0, finished_round: false }).eq("game_id", game.id);
+          await supabase.from("games").update({
+            status: "lobby", current_round: 0, current_letter: null,
+            round_started_at: null, finish_triggered_at: null, used_letters: [],
+          }).eq("id", game.id);
+          toast.success("Rematch! Back to lobby — settings preserved.");
+        }}
+          className="w-full btn-pop bg-accent text-accent-foreground py-3 text-lg">
+          🔁 Rematch (back to lobby)
+        </button>
+      )}
     </div>
   );
 }
