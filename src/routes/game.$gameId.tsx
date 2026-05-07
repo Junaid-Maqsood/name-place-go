@@ -117,6 +117,15 @@ function GameRoute() {
     }
   }, [players, me, game, navigate]);
 
+  // Auto-advance to final leaderboard when last round results are in
+  useEffect(() => {
+    if (!game || !me) return;
+    const isHost = game.host_player_id === me.playerId;
+    if (isHost && game.status === "results" && game.current_round >= game.num_rounds) {
+      nextStep(game).catch(() => {});
+    }
+  }, [game, me]);
+
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nicknameInput.trim()) return;
