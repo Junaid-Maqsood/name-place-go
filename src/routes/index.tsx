@@ -89,9 +89,17 @@ function Home() {
 
         <div>
           <label className="block font-bold mb-2">Your nickname</label>
-          <input value={nickname} onChange={(e) => setNickname(e.target.value)}
-            maxLength={16} placeholder="LegendaryLlama"
-            className="w-full text-lg rounded-2xl border-3 border-foreground/30 px-4 py-3 bg-background font-bold focus:outline-none focus:border-primary" />
+          <div className="flex gap-2">
+            <input value={nickname} onChange={(e) => setNickname(e.target.value)}
+              maxLength={16} placeholder="e.g CrazyFrog"
+              className="flex-1 min-w-0 text-lg rounded-2xl border-3 border-foreground/30 px-4 py-3 bg-background font-bold focus:outline-none focus:border-primary" />
+            <button type="button" onClick={() => setNickname(randomGamertag())}
+              title="Random nickname"
+              className="btn-pop bg-accent text-accent-foreground px-3 flex items-center justify-center shrink-0"
+              aria-label="Generate random nickname">
+              <Shuffle className="size-5" />
+            </button>
+          </div>
         </div>
 
         <div>
