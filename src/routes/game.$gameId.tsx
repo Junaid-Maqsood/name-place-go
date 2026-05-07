@@ -272,8 +272,8 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
         <>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <NumberField label="Rounds" value={rounds} setValue={setRounds} min={1} max={20} />
-            <NumberField label="Sec/round" value={seconds} setValue={setSeconds} min={20} max={300} />
-            <NumberField label="Final s" value={finish} setValue={setFinish} min={5} max={60} />
+            <NumberField label="Seconds/round" value={seconds} setValue={setSeconds} min={20} max={300} />
+            <NumberField label="Final Countdown" value={finish} setValue={setFinish} min={5} max={60} />
           </div>
 
           <div>
