@@ -581,7 +581,7 @@ function RoundResults({ game, players, answers, isHost }:
 }
 
 // ---------- Final leaderboard ----------
-function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: string }) {
+function FinalLeaderboard({ players, gameId, game, isHost }: { players: Player[]; gameId: string; game: Game; isHost: boolean }) {
   const sorted = [...players].sort((a,b) => b.score - a.score);
   const titles = [
     { emoji: "🏆", title: "Word Master ✍️" },
