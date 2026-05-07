@@ -198,7 +198,7 @@ function GameRoute() {
             </div>
           )}
           {game.status === "results" && <RoundResults game={game} players={players} answers={answers} isHost={isHost} />}
-          {game.status === "finished" && <FinalLeaderboard players={players} gameId={gameId} />}
+          {game.status === "finished" && <FinalLeaderboard players={players} gameId={gameId} game={game} isHost={isHost} />}
         </section>
 
         <aside className="space-y-4">
