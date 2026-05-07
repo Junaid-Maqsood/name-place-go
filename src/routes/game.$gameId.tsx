@@ -641,19 +641,29 @@ function FinalLeaderboard({ players, gameId }: { players: Player[]; gameId: stri
           <Trophy className="mx-auto size-12 text-warning" />
           <h2 className="font-display text-3xl sm:text-4xl font-bold mt-2">Game over!</h2>
         </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          {sorted.slice(0, 3).map((p, i) => (
-            <motion.div key={p.id}
-              initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: i * 0.15, type: "spring" }}
-              className={`card-pop p-4 text-center ${i === 0 ? "md:scale-110" : ""}`}
-              style={{ background: i === 0 ? "var(--fun-3)" : i === 1 ? "var(--fun-2)" : "var(--fun-1)" }}>
-              <div className="text-5xl">{titles[i].emoji}</div>
-              <div className="font-display text-xl sm:text-2xl font-bold mt-2 break-words">{p.emoji} {p.nickname}</div>
-              <div className="font-display text-3xl font-bold tabular-nums">{p.score}</div>
-              <div className="text-sm font-bold mt-1">{titles[i].title}</div>
-            </motion.div>
-          ))}
+        <div className="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-3">
+          {[1, 0, 2].map((rank) => {
+            const p = sorted[rank];
+            if (!p) return null;
+            const sizeCls =
+              rank === 0 ? "w-full sm:w-56 sm:scale-110 z-10" :
+              rank === 1 ? "w-full sm:w-48 sm:opacity-95" :
+              "w-full sm:w-40 sm:opacity-90 sm:scale-95";
+            const orderCls = rank === 1 ? "sm:order-1" : rank === 0 ? "sm:order-2" : "sm:order-3";
+            const bg = rank === 0 ? "var(--fun-3)" : rank === 1 ? "var(--fun-2)" : "var(--fun-1)";
+            return (
+              <motion.div key={p.id}
+                initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: rank * 0.15, type: "spring" }}
+                className={`card-pop p-4 text-center ${sizeCls} ${orderCls}`}
+                style={{ background: bg }}>
+                <div className={rank === 0 ? "text-6xl" : "text-4xl"}>{titles[rank].emoji}</div>
+                <div className="font-display text-lg sm:text-xl font-bold mt-2 break-words">{p.emoji} {p.nickname}</div>
+                <div className="font-display text-2xl sm:text-3xl font-bold tabular-nums">{p.score}</div>
+                <div className="text-xs sm:text-sm font-bold mt-1">{titles[rank].title}</div>
+              </motion.div>
+            );
+          })}
         </div>
         {sorted.length > 3 && (
           <ul className="space-y-1">
