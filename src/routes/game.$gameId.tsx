@@ -357,9 +357,33 @@ function PlayingView({ game, players, answers, me }:
     for (const c of game.categories) o[c] = myAnswers.find(a => a.category === c)?.value ?? "";
     return o;
   });
+  // Reset draft when round changes
+  const lastRound = useRef(game.current_round);
+  useEffect(() => {
+    if (lastRound.current !== game.current_round) {
+      const o: Record<string, string> = {};
+      for (const c of game.categories) o[c] = "";
+      setDraft(o);
+      lastRound.current = game.current_round;
+    }
+  }, [game.current_round, game.categories]);
+
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
+
   const me_player = players.find(p => p.id === me.playerId);
   const isHost = game.host_player_id === me.playerId;
-  const allFinished = players.filter(p => !p.is_bot).every(p => p.finished_round);
+
+  // Round age guard — prevents stale finished_round flags from ending fresh round
+  const roundStartMs = game.round_started_at ? new Date(game.round_started_at).getTime() : 0;
+  const roundIsFresh = Date.now() - roundStartMs < 2000;
+
+  // Only count humans as finished if they actually have an answer row for THIS round
+  const humans = players.filter(p => !p.is_bot);
+  const finishedHumans = humans.filter(p =>
+    p.finished_round && answers.some(a => a.player_id === p.id && a.round === game.current_round)
+  );
+  const allFinished = humans.length > 0 && finishedHumans.length === humans.length;
 
   // Bot auto-answers when round starts
   useEffect(() => {
@@ -379,19 +403,34 @@ function PlayingView({ game, players, answers, me }:
     return () => clearTimeout(t);
   }, [isHost, game.current_round, game.current_letter, game.id, game.categories, players]);
 
-  // Trigger end-of-round when timer hits 0 OR all human players finished triggers final countdown that expires
   const triggerEnd = useCallback(async () => {
     if (!isHost) return;
     if (game.status !== "playing") return;
     await endRound(game);
   }, [isHost, game]);
 
-  // Trigger final 15s countdown when ANY player (human or bot) finishes with all categories filled
+  // Auto-submit current draft when timer hits zero (even without clicking Done)
+  const autoSubmit = useCallback(async () => {
+    if (me_player?.finished_round) return;
+    const d = draftRef.current;
+    const rows = game.categories.map(cat => ({
+      game_id: game.id, round: game.current_round, player_id: me.playerId, category: cat, value: d[cat] ?? "",
+    }));
+    await supabase.from("answers").upsert(rows, { onConflict: "game_id,round,player_id,category" });
+    await supabase.from("players").update({ finished_round: true }).eq("id", me.playerId);
+  }, [game.id, game.categories, game.current_round, me.playerId, me_player?.finished_round]);
+
+  const onTimerZero = useCallback(async () => {
+    await autoSubmit();
+    if (isHost) await triggerEnd();
+  }, [autoSubmit, isHost, triggerEnd]);
+
+  // Trigger final countdown when ANY player finishes with all categories filled (uses lobby finish_countdown)
   useEffect(() => {
     if (!isHost || game.finish_triggered_at) return;
+    if (roundIsFresh) return;
     const finisher = players.find(p => p.finished_round);
     if (!finisher || allFinished) return;
-    // Verify they actually answered all categories
     const theirAnswers = answers.filter(a => a.player_id === finisher.id && a.round === game.current_round);
     const filled = game.categories.every(c => {
       const a = theirAnswers.find(x => x.category === c);
@@ -400,15 +439,14 @@ function PlayingView({ game, players, answers, me }:
     if (filled) {
       supabase.from("games").update({
         finish_triggered_at: new Date().toISOString(),
-        finish_countdown: 15,
       }).eq("id", game.id);
     }
-  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories]);
+  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories, roundIsFresh]);
 
-  // If all humans finished (incl. via final countdown), end early
+  // If all humans finished (with submitted answers), end early — but not in fresh round
   useEffect(() => {
-    if (isHost && allFinished && game.status === "playing") triggerEnd();
-  }, [isHost, allFinished, game.status, triggerEnd]);
+    if (isHost && allFinished && game.status === "playing" && !roundIsFresh) triggerEnd();
+  }, [isHost, allFinished, game.status, triggerEnd, roundIsFresh]);
 
   const submit = async () => {
     const rows = game.categories.map(cat => ({
@@ -434,7 +472,7 @@ function PlayingView({ game, players, answers, me }:
             durationSec={game.round_seconds}
             finishTriggeredAt={game.finish_triggered_at}
             finishCountdown={game.finish_countdown}
-            onZero={triggerEnd}
+            onZero={onTimerZero}
           />
         </div>
       </div>
