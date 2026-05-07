@@ -248,8 +248,11 @@ function LobbyView({ game, players, isHost }: { game: Game; players: Player[]; i
   };
 
   const addBot = async () => {
+    if (players.length >= 10) { toast.error("Lobby is full (10 max)"); return; }
     const used = players.map(p => p.nickname);
     const name = randomGamertag(used);
+    const { count } = await supabase.from("players").select("*", { count: "exact", head: true }).eq("game_id", game.id);
+    if ((count ?? 0) >= 10) { toast.error("Lobby is full (10 max)"); return; }
     await supabase.from("players").insert({
       game_id: game.id, nickname: name, emoji: pickRandomEmoji(players.map(p => p.emoji)), is_bot: true,
     });
