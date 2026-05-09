@@ -13,6 +13,7 @@ import { sfx, setMuted, isMuted } from "@/lib/sfx";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { PlayerList } from "@/components/game/PlayerList";
 import { CountdownTimer } from "@/components/game/CountdownTimer";
+import { VoiceChat } from "@/components/game/VoiceChat";
 import { Copy, Play, Plus, X, LogOut, Trophy, Bot, Settings, Share2, Volume2, VolumeX } from "lucide-react";
 
 export const Route = createFileRoute("/game/$gameId")({ component: GameRoute });
@@ -117,14 +118,16 @@ function GameRoute() {
     }
   }, [players, me, game, navigate]);
 
-  // Auto-advance to final leaderboard when last round results are in
+  // Detect admin-ended game and bounce players to home
   useEffect(() => {
-    if (!game || !me) return;
-    const isHost = game.host_player_id === me.playerId;
-    if (isHost && game.status === "results" && game.current_round >= game.num_rounds) {
-      nextStep(game).catch(() => {});
+    if (!game) return;
+    if (game.status === "ended" || (game as any).ended_by_admin) {
+      toast.error("This game has been ended by the admin.");
+      clearSession();
+      const t = setTimeout(() => navigate({ to: "/" }), 1500);
+      return () => clearTimeout(t);
     }
-  }, [game, me]);
+  }, [game?.status, (game as any)?.ended_by_admin, navigate]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,10 +204,11 @@ function GameRoute() {
           {game.status === "finished" && <FinalLeaderboard players={players} gameId={gameId} game={game} isHost={isHost} />}
         </section>
 
-        <aside className="space-y-4">
+        <aside className="space-y-3 sm:space-y-4">
           <PlayerList players={players} hostId={game.host_player_id} currentPlayerId={me.playerId}
             showFinished={game.status === "playing"}
             canKick={isHost && game.status === "lobby"} onKick={handleKick} />
+          <VoiceChat gameId={gameId} me={me} players={players} isHost={isHost} />
           <ChatPanel gameId={gameId} nickname={me.nickname} playerId={me.playerId} />
         </aside>
       </div>
