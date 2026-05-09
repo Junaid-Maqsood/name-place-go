@@ -39,6 +39,8 @@ export interface Player {
   is_bot: boolean;
   finished_round: boolean;
   connected: boolean;
+  voice_muted?: boolean;
+  host_muted?: boolean;
 }
 
 export interface Answer {
