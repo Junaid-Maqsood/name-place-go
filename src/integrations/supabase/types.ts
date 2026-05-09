@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_otps: {
+        Row: {
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          used: boolean
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          used?: boolean
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       answers: {
         Row: {
           category: string
@@ -103,6 +130,30 @@ export type Database = {
           },
         ]
       }
+      game_audit_log: {
+        Row: {
+          created_at: string
+          details: Json
+          event: string
+          game_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          event: string
+          game_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          event?: string
+          game_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       game_bans: {
         Row: {
           created_at: string
@@ -134,6 +185,7 @@ export type Database = {
           current_letter: string | null
           current_round: number
           difficulty: string
+          ended_by_admin: boolean
           finish_countdown: number
           finish_triggered_at: string | null
           host_player_id: string | null
@@ -150,6 +202,7 @@ export type Database = {
           current_letter?: string | null
           current_round?: number
           difficulty?: string
+          ended_by_admin?: boolean
           finish_countdown?: number
           finish_triggered_at?: string | null
           host_player_id?: string | null
@@ -166,6 +219,7 @@ export type Database = {
           current_letter?: string | null
           current_round?: number
           difficulty?: string
+          ended_by_admin?: boolean
           finish_countdown?: number
           finish_triggered_at?: string | null
           host_player_id?: string | null
@@ -184,36 +238,42 @@ export type Database = {
           emoji: string
           finished_round: boolean
           game_id: string
+          host_muted: boolean
           id: string
           is_bot: boolean
           joined_at: string
           kick_count: number
           nickname: string
           score: number
+          voice_muted: boolean
         }
         Insert: {
           connected?: boolean
           emoji?: string
           finished_round?: boolean
           game_id: string
+          host_muted?: boolean
           id?: string
           is_bot?: boolean
           joined_at?: string
           kick_count?: number
           nickname: string
           score?: number
+          voice_muted?: boolean
         }
         Update: {
           connected?: boolean
           emoji?: string
           finished_round?: boolean
           game_id?: string
+          host_muted?: boolean
           id?: string
           is_bot?: boolean
           joined_at?: string
           kick_count?: number
           nickname?: string
           score?: number
+          voice_muted?: boolean
         }
         Relationships: [
           {

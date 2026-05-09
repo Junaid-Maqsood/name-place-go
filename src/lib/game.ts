@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export const PLAYER_EMOJIS = ["🦊","🐼","🦁","🐸","🐙","🦄","🐵","🐯","🐧","🐨","🦉","🐲","🦋","🐳","🧚","🧙","🧛","🧜","🧝","🧞","👹"];
+import { ANIMAL_EMOJIS } from "./animals";
+export const PLAYER_EMOJIS = ANIMAL_EMOJIS;
 export const DEFAULT_CATEGORIES = ["Name","Place","Animal","Thing","Food","Movie"];
 
 export type Difficulty = "easy" | "medium" | "hard";
@@ -11,7 +12,7 @@ export const ALPHABETS: Record<Difficulty, string[]> = {
 };
 export const ALPHABET = ALPHABETS.medium;
 
-export type GameStatus = "lobby" | "playing" | "scoring" | "results" | "finished";
+export type GameStatus = "lobby" | "playing" | "scoring" | "results" | "finished" | "ended";
 
 export interface Game {
   id: string;
@@ -38,6 +39,8 @@ export interface Player {
   is_bot: boolean;
   finished_round: boolean;
   connected: boolean;
+  voice_muted?: boolean;
+  host_muted?: boolean;
 }
 
 export interface Answer {
