@@ -12,7 +12,7 @@ export const ALPHABETS: Record<Difficulty, string[]> = {
 };
 export const ALPHABET = ALPHABETS.medium;
 
-export type GameStatus = "lobby" | "playing" | "scoring" | "results" | "finished";
+export type GameStatus = "lobby" | "playing" | "scoring" | "results" | "finished" | "ended";
 
 export interface Game {
   id: string;
