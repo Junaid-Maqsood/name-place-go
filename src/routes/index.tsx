@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { createGame, joinGame, loadSession, pickRandomEmoji, PLAYER_EMOJIS, clearSession } from "@/lib/game";
 import { randomGamertag } from "@/lib/gamertags";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Users, ArrowRight, Moon, Sun, Shuffle } from "lucide-react";
+import { Sparkles, Users, ArrowRight, Shuffle } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { animalName } from "@/lib/animals";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -61,11 +63,9 @@ function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
-      <button onClick={() => setDark(d => !d)}
-        className="absolute top-4 right-4 btn-pop bg-card text-foreground size-12 flex items-center justify-center"
-        aria-label="Toggle theme">
-        {dark ? <Sun className="size-5" /> : <Moon className="size-5" />}
-      </button>
+      <div className="absolute top-4 right-4">
+        <ThemeToggle dark={dark} onChange={setDark} />
+      </div>
 
       <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         transition={{ type: "spring", bounce: 0.5 }} className="text-center mb-8">
@@ -107,6 +107,7 @@ function Home() {
           <div className="flex flex-wrap gap-2">
             {PLAYER_EMOJIS.map((e) => (
               <button key={e} type="button" onClick={() => setEmoji(e)}
+                title={animalName(e)} aria-label={animalName(e)}
                 className={`text-2xl size-11 rounded-full border-2 transition-all ${
                   emoji === e ? "border-primary scale-110 bg-primary/10" : "border-foreground/15 hover:scale-105"
                 }`}>{e}</button>
