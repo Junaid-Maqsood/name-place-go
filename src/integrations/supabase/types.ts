@@ -238,36 +238,42 @@ export type Database = {
           emoji: string
           finished_round: boolean
           game_id: string
+          host_muted: boolean
           id: string
           is_bot: boolean
           joined_at: string
           kick_count: number
           nickname: string
           score: number
+          voice_muted: boolean
         }
         Insert: {
           connected?: boolean
           emoji?: string
           finished_round?: boolean
           game_id: string
+          host_muted?: boolean
           id?: string
           is_bot?: boolean
           joined_at?: string
           kick_count?: number
           nickname: string
           score?: number
+          voice_muted?: boolean
         }
         Update: {
           connected?: boolean
           emoji?: string
           finished_round?: boolean
           game_id?: string
+          host_muted?: boolean
           id?: string
           is_bot?: boolean
           joined_at?: string
           kick_count?: number
           nickname?: string
           score?: number
+          voice_muted?: boolean
         }
         Relationships: [
           {
