@@ -441,23 +441,17 @@ function PlayingView({ game, players, answers, me }:
     if (isHost) await triggerEnd();
   }, [autoSubmit, isHost, triggerEnd]);
 
-  // Trigger final countdown when ANY player finishes with all categories filled (uses lobby finish_countdown)
+  // Final countdown override: as soon as ANY player clicks "I'm done",
+  // hard-replace remaining time with finish_countdown for all players.
   useEffect(() => {
     if (!isHost || game.finish_triggered_at) return;
     if (roundIsFresh) return;
-    const finisher = players.find(p => p.finished_round);
+    const finisher = players.find(p => p.finished_round && !p.is_bot);
     if (!finisher || allFinished) return;
-    const theirAnswers = answers.filter(a => a.player_id === finisher.id && a.round === game.current_round);
-    const filled = game.categories.every(c => {
-      const a = theirAnswers.find(x => x.category === c);
-      return a && a.value && a.value.trim().length > 0;
-    });
-    if (filled) {
-      supabase.from("games").update({
-        finish_triggered_at: new Date().toISOString(),
-      }).eq("id", game.id);
-    }
-  }, [isHost, players, answers, allFinished, game.finish_triggered_at, game.id, game.current_round, game.categories, roundIsFresh]);
+    supabase.from("games").update({
+      finish_triggered_at: new Date().toISOString(),
+    }).eq("id", game.id);
+  }, [isHost, players, allFinished, game.finish_triggered_at, game.id, roundIsFresh]);
 
   // If all humans finished (with submitted answers), end early — but not in fresh round
   useEffect(() => {

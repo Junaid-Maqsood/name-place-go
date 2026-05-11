@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_credentials: {
+        Row: {
+          email: string
+          id: number
+          password_hash: string
+          updated_at: string
+        }
+        Insert: {
+          email: string
+          id?: number
+          password_hash: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string
+          id?: number
+          password_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      admin_login_attempts: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          ip: string | null
+          reason: string | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       admin_otps: {
         Row: {
           code: string
@@ -37,6 +85,33 @@ export type Database = {
           email?: string
           expires_at?: string
           id?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
+      admin_password_resets: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token_hash: string
+          used: boolean
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          used?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
           used?: boolean
         }
         Relationships: []
@@ -129,6 +204,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      error_logs: {
+        Row: {
+          category: string
+          context: Json
+          created_at: string
+          game_id: string | null
+          id: string
+          message: string
+          player_id: string | null
+          severity: string
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          category?: string
+          context?: Json
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          message: string
+          player_id?: string | null
+          severity?: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          category?: string
+          context?: Json
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          message?: string
+          player_id?: string | null
+          severity?: string
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       game_audit_log: {
         Row: {

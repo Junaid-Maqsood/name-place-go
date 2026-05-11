@@ -115,13 +115,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col">
-        <div className="flex-1 pb-16">
-          <Outlet />
-        </div>
-        <footer className="py-3 px-4 text-center text-xs sm:text-sm font-bold text-muted-foreground border-t-2 border-foreground/10 bg-background/80 backdrop-blur" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-          Made with <span className="text-destructive">♥</span> by J.M
-        </footer>
+      <div className="min-h-screen">
+        <Outlet />
       </div>
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
